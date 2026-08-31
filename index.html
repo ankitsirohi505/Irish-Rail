@@ -1948,20 +1948,29 @@
   // Set MOCK_MODE = false + REST_URL to your Site + /services/apexrest/passengerAssist/chat
   // to hit the real Salesforce backend.
   var CONFIG = {
-    MOCK_MODE: false,
-    REST_URL:  'https://trailsignup-dd114f6bfc3319.my.salesforce-sites.com/iarnrodassist/services/apexrest/passengerAssist/chat',
-    STORAGE_KEY: 'iarnrod_pa_history',
-    MAX_HISTORY_TURNS: 12
+    MOCK_MODE:      false,
+    REST_URL:       'https://trailsignup-dd114f6bfc3319.my.salesforce-sites.com/iarnrodassist/services/apexrest/passengerAssist/chat',
+    HANDOFF_URL:    'https://trailsignup-dd114f6bfc3319.my.salesforce-sites.com/iarnrodassist/services/apexrest/passengerAssist/handoff',
+    STORAGE_KEY:    'iarnrod_pa_history',
+    HANDOFF_KEY:    'iarnrod_pa_handoff_case',
+    MAX_HISTORY_TURNS: 12,
+    POLL_MS:        3500      // matches PatientAssist widget polling cadence
   };
 
   // ─── State ──────────────────────────────────────────────────
   var state = {
-    isOpen:    false,
-    isSending: false,
-    sessionId: sessionStorage.getItem('iarnrod_pa_session') || null,
-    messages:  [],
+    isOpen:      false,
+    isSending:   false,
+    sessionId:   sessionStorage.getItem('iarnrod_pa_session') || null,
+    messages:    [],
     // Progressive lost-item slots (mock mode)
-    lostItem:  { itemDescription: '', journeyDate: '', routeOrTrain: '', contactEmail: '' }
+    lostItem:    { itemDescription: '', journeyDate: '', routeOrTrain: '', contactEmail: '' },
+    // Live handoff state
+    handoffCaseId:     sessionStorage.getItem('iarnrod_pa_handoff_case') || null,
+    handoffCaseNumber: sessionStorage.getItem('iarnrod_pa_handoff_number') || null,
+    isLiveMode:  false,
+    lastPollMs:  0,
+    pollTimer:   null
   };
 
   // ─── DOM refs ───────────────────────────────────────────────
@@ -2019,8 +2028,15 @@
     removeQuickReplies();
     state.isSending = true;
     $send.disabled = true;
-    showTyping();
 
+    // If we're in live-chat mode (post-handoff), route via /handoff sendMessage
+    // instead of the regular /chat pipeline.
+    if (state.isLiveMode && state.handoffCaseId) {
+      sendLiveMessage(text);
+      return;
+    }
+
+    showTyping();
     if (CONFIG.MOCK_MODE) {
       setTimeout(function() { mockRespond(text); }, 700 + Math.random() * 500);
     } else {
@@ -2223,6 +2239,166 @@
     if (res.needsHandoff && res.richCardType !== 'HANDOFF_BANNER') {
       showHandoffBanner(res.caseNumber, (data && data.category) || 'Other');
     }
+    // If a Case was created (any handoff path), enter live-chat mode so the
+    // passenger can type again and their message goes to the rep, not the AI.
+    if (res.needsHandoff && res.caseId) {
+      startLiveMode(res.caseId, res.caseNumber);
+    }
+  }
+
+  // ─── Live chat mode ─────────────────────────────────────────
+  function startLiveMode(caseId, caseNumber) {
+    if (state.isLiveMode && state.handoffCaseId === caseId) return;
+    state.isLiveMode         = true;
+    state.handoffCaseId      = caseId;
+    state.handoffCaseNumber  = caseNumber || '';
+    state.lastPollMs         = Date.now() - 60000;   // catch anything in the last 60s
+    try {
+      sessionStorage.setItem('iarnrod_pa_handoff_case', caseId);
+      if (caseNumber) sessionStorage.setItem('iarnrod_pa_handoff_number', caseNumber);
+    } catch(e) {}
+    // Update header + placeholder so the passenger knows they're talking to a person
+    setLiveHeader();
+    $input.placeholder = 'Reply to the Iarnród team…';
+    // Start polling for rep replies
+    stopLiveMode(false);       // clear any pre-existing timer
+    state.pollTimer = setInterval(pollLiveMessages, CONFIG.POLL_MS);
+  }
+
+  function stopLiveMode(resetHeader) {
+    if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+    if (resetHeader !== false) {
+      state.isLiveMode = false;
+      state.handoffCaseId = null;
+      state.handoffCaseNumber = null;
+      try {
+        sessionStorage.removeItem('iarnrod_pa_handoff_case');
+        sessionStorage.removeItem('iarnrod_pa_handoff_number');
+      } catch(e) {}
+      resetHeaderToAi();
+      $input.placeholder = 'Type your question…';
+    }
+  }
+
+  function setLiveHeader() {
+    var title = document.querySelector('.pa-title-main');
+    var sub   = document.querySelector('.pa-title-sub');
+    if (title) title.textContent = 'Iarnród team';
+    if (sub) sub.innerHTML = 'Live · ' + (state.handoffCaseNumber ? ('Case ' + state.handoffCaseNumber) : 'connecting…');
+  }
+  function resetHeaderToAi() {
+    var title = document.querySelector('.pa-title-main');
+    var sub   = document.querySelector('.pa-title-sub');
+    if (title) title.textContent = 'Iarnród Assist';
+    if (sub) sub.innerHTML = 'AI · Lost Property · Fares · Accessibility';
+  }
+
+  function sendLiveMessage(text) {
+    // The user's message was already added to the timeline by showUser().
+    // Post it to Salesforce as a FeedItem on the handoff Case.
+    var body = {
+      action:     'send_message',
+      caseId:     state.handoffCaseId,
+      text:       text,
+      senderName: 'Passenger'
+    };
+    fetch(CONFIG.HANDOFF_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      state.isSending = false;
+      $send.disabled  = false;
+      if (res.errorMessage) {
+        showBot('Sorry, could not deliver that message: ' + res.errorMessage);
+      }
+    })
+    .catch(function(err) {
+      state.isSending = false;
+      $send.disabled  = false;
+      showBot('Sorry, could not reach the service. Please try again in a moment.');
+      console.error('Iarnród Live send error:', err);
+    });
+  }
+
+  function pollLiveMessages() {
+    if (!state.isLiveMode || !state.handoffCaseId) return;
+    var body = {
+      action:  'get_messages',
+      caseId:  state.handoffCaseId,
+      sinceMs: state.lastPollMs
+    };
+    fetch(CONFIG.HANDOFF_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (!res) return;
+      var msgs = res.messages || [];
+      for (var i = 0; i < msgs.length; i++) {
+        var m = msgs[i];
+        if (m.createdMs && m.createdMs > state.lastPollMs) state.lastPollMs = m.createdMs;
+        // Only render messages FROM the rep (role='agent' when polling as the guest).
+        // Skip role='user' (that's the passenger's own message, already on screen).
+        if (m.role === 'agent' && m.text) {
+          // Skip system separators like "── Passenger ended chat ──"
+          if (m.text.indexOf('──') === 0) continue;
+          renderRepMessage(m);
+        }
+      }
+      if (res.ended) {
+        showEndedBanner();
+        stopLiveMode(true);
+      }
+    })
+    .catch(function() { /* transient network — try again next tick */ });
+  }
+
+  function renderRepMessage(m) {
+    var el = document.createElement('div');
+    el.className = 'pa-msg pa-bot';
+    var senderLine = document.createElement('div');
+    senderLine.style.fontSize = '11px';
+    senderLine.style.opacity = '0.7';
+    senderLine.style.marginBottom = '3px';
+    senderLine.style.fontWeight = '600';
+    senderLine.textContent = (m.senderName || 'Iarnród team') + (m.createdAt ? (' · ' + m.createdAt) : '');
+    var textLine = document.createElement('div');
+    textLine.textContent = m.text;
+    el.appendChild(senderLine);
+    el.appendChild(textLine);
+    $messages.appendChild(el);
+    state.messages.push({ role: 'agent', text: m.text });
+    trimAndSaveHistory();
+    scrollToBottom();
+  }
+
+  function showEndedBanner() {
+    var el = document.createElement('div');
+    el.className = 'pa-handoff';
+    el.style.background = '#666';
+    el.innerHTML =
+      '<div class="pa-handoff-icon" style="background: rgba(255,255,255,0.2);">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>' +
+      '</div>' +
+      '<div class="pa-handoff-body">' +
+        '<div class="pa-handoff-title">Chat closed</div>' +
+        '<div class="pa-handoff-text">The Iarnród team has ended this chat. You can start a new conversation anytime.</div>' +
+      '</div>';
+    $messages.appendChild(el);
+    scrollToBottom();
+  }
+
+  // Resume live mode on page reload if a handoff Case was left open.
+  if (state.handoffCaseId) {
+    // Delay so DOM refs are ready
+    setTimeout(function() {
+      if (state.handoffCaseId) startLiveMode(state.handoffCaseId, state.handoffCaseNumber);
+    }, 0);
   }
 
   // ─── Mock responses (demo mode) ──────────────────────────────
