@@ -1614,7 +1614,8 @@
     background: #7ED8A3;
     box-shadow: 0 0 6px #7ED8A3;
   }
-  .pa-header .pa-close {
+  .pa-header .pa-close,
+  .pa-header .pa-new-chat {
     background: transparent;
     border: none;
     color: #FFFFFF;
@@ -1622,9 +1623,13 @@
     cursor: pointer;
     border-radius: 4px;
     opacity: 0.85;
+    flex-shrink: 0;
   }
-  .pa-header .pa-close:hover { background: rgba(255,255,255,0.15); opacity: 1; }
-  .pa-header .pa-close svg { width: 18px; height: 18px; display: block; }
+  .pa-header .pa-close:hover,
+  .pa-header .pa-new-chat:hover { background: rgba(255,255,255,0.15); opacity: 1; }
+  .pa-header .pa-close svg,
+  .pa-header .pa-new-chat svg { width: 18px; height: 18px; display: block; }
+  .pa-header .pa-new-chat svg { width: 16px; height: 16px; }
 
   /* Message list */
   .pa-messages {
@@ -1925,6 +1930,9 @@
       <div class="pa-title-main">Iarnród Assist</div>
       <div class="pa-title-sub">AI · Lost Property · Fares · Accessibility</div>
     </div>
+    <button class="pa-new-chat" id="paNewChat" aria-label="Start a new conversation" title="New conversation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+    </button>
     <button class="pa-close" id="paClose" aria-label="Close chat">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
     </button>
@@ -1977,6 +1985,7 @@
   var $fab      = document.getElementById('paFab');
   var $panel    = document.getElementById('paPanel');
   var $close    = document.getElementById('paClose');
+  var $newChat  = document.getElementById('paNewChat');
   var $messages = document.getElementById('paMessages');
   var $input    = document.getElementById('paInput');
   var $send     = document.getElementById('paSend');
@@ -1984,6 +1993,34 @@
   // ─── Panel open/close ───────────────────────────────────────
   $fab.addEventListener('click', openPanel);
   $close.addEventListener('click', closePanel);
+  if ($newChat) $newChat.addEventListener('click', handleNewChat);
+
+  // Start a fresh conversation — mirrors PatientAssist's "New chat" pencil.
+  // Politely closes any in-flight handoff Case so the rep knows the passenger
+  // walked away, then clears state and shows a fresh AI greeting.
+  function handleNewChat() {
+    if (state.isSending) return;
+    if (state.isLiveMode && state.handoffCaseId) {
+      // Fire-and-forget close so the rep sees "Passenger ended the chat"
+      try {
+        fetch(CONFIG.HANDOFF_URL, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ action: 'close', caseId: state.handoffCaseId })
+        }).catch(function(){});
+      } catch (e) {}
+    }
+    stopLiveMode(true);
+    state.messages = [];
+    state.lostItem = { itemDescription: '', journeyDate: '', routeOrTrain: '', contactEmail: '' };
+    try { sessionStorage.removeItem(CONFIG.STORAGE_KEY); } catch(e) {}
+    $messages.innerHTML = '';
+    removeQuickReplies();
+    $input.value = '';
+    showBot('Hi! I\'m Iarnród Assist. I can help with Lost Property, Fares, Accessibility, and Complaints. What can I do for you?');
+    showQuickReplies(['I lost something', 'Fares & tickets', 'Travel assistance', 'Make a complaint']);
+    setTimeout(function(){ $input.focus(); }, 20);
+  }
 
   function openPanel() {
     state.isOpen = true;
