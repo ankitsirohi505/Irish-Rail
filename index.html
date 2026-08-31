@@ -1490,3 +1490,852 @@
   // Simple search suggestion for From/To
   var stations = ['Dublin Heuston','Dublin Connolly','Cork Kent','Galway Ceannt','Limerick Colbert','Waterford Plunkett','Tralee Casement','Sligo MacDiarmada','Belfast Grand Central','Westport','Killarney','Mallow','Thurles','Portlaoise','Athlone','Kilkenny','Wexford','Rosslare','Dundalk','Drogheda','Bray','Greystones','Malahide','Howth'];
 </script>
+
+<!-- ============================================================ -->
+<!-- ==========  IARNRÓD PASSENGER ASSIST WIDGET  =============== -->
+<!-- ============================================================ -->
+
+<style>
+  /* ─── palette matches the Iarnród Rail site ─── */
+  :root {
+    --pa-green:       #007A36;
+    --pa-green-dark:  #005C29;
+    --pa-green-soft:  #E8F5EC;
+    --pa-orange:      #F58220;
+    --pa-orange-dark: #DE6E10;
+    --pa-panel-bg:    #3F3F3F;
+    --pa-panel-bg-2:  #4A4A4A;
+    --pa-text:        #1A1A1A;
+    --pa-muted:       #6B6B6B;
+    --pa-line:        #E5E5E5;
+    --pa-page-bg:     #F5F5F5;
+    --pa-white:       #FFFFFF;
+    --pa-user-bg:     #007A36;
+    --pa-bot-bg:      #F5F0E4;
+  }
+
+  /* ─── Floating pill button (closed state) ─── */
+  .pa-fab {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 999999;
+    background: var(--pa-green);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 100px;
+    padding: 14px 20px 14px 16px;
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,0.08);
+    transition: transform 160ms, background 120ms, box-shadow 160ms;
+  }
+  .pa-fab:hover { background: var(--pa-green-dark); transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,0.28); }
+  .pa-fab svg { width: 22px; height: 22px; }
+  .pa-fab.pa-hide { display: none; }
+  .pa-fab .pa-fab-badge {
+    background: var(--pa-orange);
+    color: #FFF;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 100px;
+    margin-left: 4px;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }
+
+  /* ─── Panel (open state) ─── */
+  .pa-panel {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 999999;
+    width: 400px;
+    max-width: calc(100vw - 32px);
+    height: 620px;
+    max-height: calc(100vh - 40px);
+    background: var(--pa-white);
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.24), 0 4px 8px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--pa-text);
+    animation: paSlideUp 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .pa-panel.pa-hide { display: none; }
+  @keyframes paSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Header */
+  .pa-header {
+    background: var(--pa-green);
+    color: #FFFFFF;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .pa-header .pa-avatar {
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .pa-header .pa-avatar svg { width: 20px; height: 20px; }
+  .pa-header .pa-title {
+    flex: 1;
+    min-width: 0;
+  }
+  .pa-header .pa-title-main {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+  .pa-header .pa-title-sub {
+    font-size: 12px;
+    opacity: 0.85;
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 2px;
+  }
+  .pa-header .pa-title-sub::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: #7ED8A3;
+    box-shadow: 0 0 6px #7ED8A3;
+  }
+  .pa-header .pa-close {
+    background: transparent;
+    border: none;
+    color: #FFFFFF;
+    padding: 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    opacity: 0.85;
+  }
+  .pa-header .pa-close:hover { background: rgba(255,255,255,0.15); opacity: 1; }
+  .pa-header .pa-close svg { width: 18px; height: 18px; display: block; }
+
+  /* Message list */
+  .pa-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 16px 8px;
+    background: var(--pa-page-bg);
+    display: flex; flex-direction: column; gap: 10px;
+    scroll-behavior: smooth;
+  }
+  .pa-messages::-webkit-scrollbar { width: 6px; }
+  .pa-messages::-webkit-scrollbar-thumb { background: #CCC; border-radius: 3px; }
+  .pa-messages::-webkit-scrollbar-track { background: transparent; }
+
+  .pa-msg {
+    max-width: 82%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.45;
+    word-wrap: break-word;
+    animation: paMsgIn 200ms ease-out;
+  }
+  @keyframes paMsgIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .pa-msg.pa-bot {
+    align-self: flex-start;
+    background: var(--pa-bot-bg);
+    color: var(--pa-text);
+    border-radius: 14px 14px 14px 4px;
+  }
+  .pa-msg.pa-user {
+    align-self: flex-end;
+    background: var(--pa-user-bg);
+    color: #FFFFFF;
+    border-radius: 14px 14px 4px 14px;
+  }
+  .pa-msg strong { font-weight: 600; }
+
+  /* Typing indicator */
+  .pa-typing {
+    align-self: flex-start;
+    background: var(--pa-bot-bg);
+    padding: 12px 16px;
+    border-radius: 14px 14px 14px 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pa-typing span {
+    width: 6px; height: 6px; border-radius: 50%; background: #999;
+    animation: paDot 1.2s infinite ease-in-out;
+  }
+  .pa-typing span:nth-child(2) { animation-delay: 0.15s; }
+  .pa-typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes paDot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+    30%           { transform: translateY(-4px); opacity: 1; }
+  }
+
+  /* Rich cards */
+  .pa-card {
+    align-self: flex-start;
+    max-width: 90%;
+    background: #FFFFFF;
+    border: 1px solid var(--pa-line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    animation: paMsgIn 220ms ease-out;
+  }
+  .pa-card .pa-card-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--pa-green-dark);
+    background: var(--pa-green-soft);
+    padding: 3px 8px;
+    border-radius: 100px;
+    margin-bottom: 8px;
+  }
+  .pa-card .pa-card-title {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.3;
+    margin-bottom: 6px;
+    color: var(--pa-text);
+  }
+  .pa-card .pa-card-body {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--pa-text);
+  }
+  .pa-card .pa-card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--pa-green-dark);
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+    margin-top: 10px;
+  }
+  .pa-card .pa-card-link:hover { text-decoration: underline; }
+
+  /* Lost item form card */
+  .pa-lost-list {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+    font-size: 13px;
+  }
+  .pa-lost-list li {
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--pa-muted);
+  }
+  .pa-lost-list li.pa-done { color: var(--pa-text); }
+  .pa-lost-list li::before {
+    content: '○';
+    color: var(--pa-muted);
+    font-weight: 700;
+    width: 14px;
+    display: inline-block;
+    text-align: center;
+  }
+  .pa-lost-list li.pa-done::before {
+    content: '✓';
+    color: var(--pa-green);
+  }
+
+  /* Handoff banner */
+  .pa-handoff {
+    align-self: stretch;
+    max-width: 100%;
+    background: linear-gradient(135deg, var(--pa-green) 0%, var(--pa-green-dark) 100%);
+    color: #FFFFFF;
+    padding: 16px 18px;
+    border-radius: 10px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    animation: paMsgIn 220ms ease-out;
+  }
+  .pa-handoff .pa-handoff-icon {
+    width: 32px; height: 32px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .pa-handoff .pa-handoff-icon svg { width: 18px; height: 18px; color: #FFF; }
+  .pa-handoff .pa-handoff-body { flex: 1; min-width: 0; }
+  .pa-handoff .pa-handoff-title {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .pa-handoff .pa-handoff-text {
+    font-size: 13px;
+    line-height: 1.4;
+    opacity: 0.95;
+  }
+  .pa-handoff .pa-case-number {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+
+  /* Quick reply chips */
+  .pa-quick-replies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 0 2px;
+    align-self: stretch;
+  }
+  .pa-quick-replies button {
+    background: #FFFFFF;
+    border: 1.5px solid var(--pa-green);
+    color: var(--pa-green-dark);
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: background 120ms, color 120ms;
+  }
+  .pa-quick-replies button:hover {
+    background: var(--pa-green);
+    color: #FFFFFF;
+  }
+  .pa-quick-replies button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* Composer */
+  .pa-composer {
+    flex-shrink: 0;
+    background: #FFFFFF;
+    border-top: 1px solid var(--pa-line);
+    padding: 12px 14px 12px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .pa-composer textarea {
+    flex: 1;
+    resize: none;
+    border: 1.5px solid var(--pa-line);
+    border-radius: 20px;
+    padding: 10px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--pa-text);
+    max-height: 100px;
+    min-height: 40px;
+    outline: none;
+    transition: border-color 120ms;
+  }
+  .pa-composer textarea:focus { border-color: var(--pa-green); }
+  .pa-composer .pa-send {
+    background: var(--pa-orange);
+    color: #FFFFFF;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 120ms, transform 120ms;
+  }
+  .pa-composer .pa-send:hover { background: var(--pa-orange-dark); }
+  .pa-composer .pa-send:disabled { background: #CCC; cursor: default; }
+  .pa-composer .pa-send svg { width: 18px; height: 18px; }
+
+  .pa-footer {
+    background: #FAFAFA;
+    padding: 8px 14px;
+    font-size: 10.5px;
+    color: var(--pa-muted);
+    text-align: center;
+    border-top: 1px solid var(--pa-line);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 480px) {
+    .pa-panel {
+      right: 0; bottom: 0; left: 0;
+      width: 100%;
+      max-width: 100%;
+      height: 100%;
+      max-height: 100%;
+      border-radius: 0;
+    }
+    .pa-fab { right: 14px; bottom: 14px; }
+  }
+</style>
+
+<!-- Widget UI: floating pill + hidden panel -->
+<button class="pa-fab" id="paFab" aria-label="Open Iarnród Assist">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  Iarnród Assist
+  <span class="pa-fab-badge">AI</span>
+</button>
+
+<div class="pa-panel pa-hide" id="paPanel" role="dialog" aria-label="Iarnród Assist chat">
+  <div class="pa-header">
+    <div class="pa-avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M4 10h16"/><circle cx="8" cy="15" r="1.5" fill="currentColor"/><circle cx="16" cy="15" r="1.5" fill="currentColor"/></svg>
+    </div>
+    <div class="pa-title">
+      <div class="pa-title-main">Iarnród Assist</div>
+      <div class="pa-title-sub">AI · Lost Property · Fares · Accessibility</div>
+    </div>
+    <button class="pa-close" id="paClose" aria-label="Close chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="pa-messages" id="paMessages" aria-live="polite" aria-atomic="false"></div>
+
+  <div class="pa-composer">
+    <textarea id="paInput" rows="1" placeholder="Type your question..." aria-label="Message"></textarea>
+    <button class="pa-send" id="paSend" aria-label="Send message">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+    </button>
+  </div>
+
+  <div class="pa-footer">Powered by Iarnród · AI assistant</div>
+</div>
+
+<script>
+(function() {
+  // ─── Config ──────────────────────────────────────────────────
+  // Set MOCK_MODE = false + REST_URL to your Site + /services/apexrest/passengerAssist/chat
+  // to hit the real Salesforce backend.
+  var CONFIG = {
+    MOCK_MODE: false,
+    REST_URL:  'https://trailsignup-dd114f6bfc3319.my.salesforce-sites.com/iarnrodassist/services/apexrest/passengerAssist/chat',
+    STORAGE_KEY: 'iarnrod_pa_history',
+    MAX_HISTORY_TURNS: 12
+  };
+
+  // ─── State ──────────────────────────────────────────────────
+  var state = {
+    isOpen:    false,
+    isSending: false,
+    sessionId: sessionStorage.getItem('iarnrod_pa_session') || null,
+    messages:  [],
+    // Progressive lost-item slots (mock mode)
+    lostItem:  { itemDescription: '', journeyDate: '', routeOrTrain: '', contactEmail: '' }
+  };
+
+  // ─── DOM refs ───────────────────────────────────────────────
+  var $fab      = document.getElementById('paFab');
+  var $panel    = document.getElementById('paPanel');
+  var $close    = document.getElementById('paClose');
+  var $messages = document.getElementById('paMessages');
+  var $input    = document.getElementById('paInput');
+  var $send     = document.getElementById('paSend');
+
+  // ─── Panel open/close ───────────────────────────────────────
+  $fab.addEventListener('click', openPanel);
+  $close.addEventListener('click', closePanel);
+
+  function openPanel() {
+    state.isOpen = true;
+    $panel.classList.remove('pa-hide');
+    $fab.classList.add('pa-hide');
+    if (state.messages.length === 0) {
+      loadHistory();
+      if (state.messages.length === 0) {
+        showBot('Hi! I\'m Iarnród Assist. I can help with Lost Property, Fares, Accessibility, and Complaints. What can I do for you?');
+        showQuickReplies(['I lost something', 'Fares & tickets', 'Travel assistance', 'Make a complaint']);
+      }
+    }
+    setTimeout(function() { $input.focus(); }, 100);
+  }
+
+  function closePanel() {
+    state.isOpen = false;
+    $panel.classList.add('pa-hide');
+    $fab.classList.remove('pa-hide');
+  }
+
+  // ─── Composer ────────────────────────────────────────────────
+  $send.addEventListener('click', handleSend);
+  $input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  });
+  $input.addEventListener('input', function() {
+    $input.style.height = 'auto';
+    $input.style.height = Math.min($input.scrollHeight, 100) + 'px';
+  });
+
+  function handleSend() {
+    var text = $input.value.trim();
+    if (!text || state.isSending) return;
+    $input.value = '';
+    $input.style.height = 'auto';
+    sendUser(text);
+  }
+
+  function sendUser(text) {
+    showUser(text);
+    removeQuickReplies();
+    state.isSending = true;
+    $send.disabled = true;
+    showTyping();
+
+    if (CONFIG.MOCK_MODE) {
+      setTimeout(function() { mockRespond(text); }, 700 + Math.random() * 500);
+    } else {
+      callSalesforce(text);
+    }
+  }
+
+  // ─── Message rendering ───────────────────────────────────────
+  function showUser(text) {
+    var el = document.createElement('div');
+    el.className = 'pa-msg pa-user';
+    el.textContent = text;
+    $messages.appendChild(el);
+    state.messages.push({ role: 'user', text: text });
+    trimAndSaveHistory();
+    scrollToBottom();
+  }
+
+  function showBot(text) {
+    var el = document.createElement('div');
+    el.className = 'pa-msg pa-bot';
+    el.textContent = text;
+    $messages.appendChild(el);
+    state.messages.push({ role: 'agent', text: text });
+    trimAndSaveHistory();
+    scrollToBottom();
+  }
+
+  function showTyping() {
+    var el = document.createElement('div');
+    el.className = 'pa-typing';
+    el.id = 'paTyping';
+    el.innerHTML = '<span></span><span></span><span></span>';
+    $messages.appendChild(el);
+    scrollToBottom();
+  }
+  function hideTyping() {
+    var el = document.getElementById('paTyping');
+    if (el) el.remove();
+  }
+
+  function showQuickReplies(labels) {
+    removeQuickReplies();
+    var wrap = document.createElement('div');
+    wrap.className = 'pa-quick-replies';
+    wrap.id = 'paQuickReplies';
+    labels.forEach(function(label) {
+      var btn = document.createElement('button');
+      btn.textContent = label;
+      btn.addEventListener('click', function() {
+        removeQuickReplies();
+        sendUser(label);
+      });
+      wrap.appendChild(btn);
+    });
+    $messages.appendChild(wrap);
+    scrollToBottom();
+  }
+  function removeQuickReplies() {
+    var el = document.getElementById('paQuickReplies');
+    if (el) el.remove();
+  }
+
+  function showKnowledgeCard(data) {
+    var card = document.createElement('div');
+    card.className = 'pa-card';
+    var ref = data.articleReference || '';
+    var title = data.articleTitle || 'Iarnród policy';
+    var body = data.summary || '';
+    card.innerHTML =
+      '<span class="pa-card-eyebrow">Policy · ' + escapeHtml(ref) + '</span>' +
+      '<div class="pa-card-title">' + escapeHtml(title) + '</div>' +
+      '<div class="pa-card-body">' + escapeHtml(body) + '</div>' +
+      '<a href="#" class="pa-card-link">Read full article →</a>';
+    $messages.appendChild(card);
+    scrollToBottom();
+  }
+
+  function showLostItemCard(data) {
+    var slots = ['itemDescription', 'journeyDate', 'routeOrTrain', 'contactEmail'];
+    var labels = {
+      itemDescription: 'Item description',
+      journeyDate:     'Journey date',
+      routeOrTrain:    'Route or train',
+      contactEmail:    'Contact email'
+    };
+    var listHtml = '<ul class="pa-lost-list">';
+    slots.forEach(function(k) {
+      var has = !!data[k];
+      listHtml += '<li class="' + (has ? 'pa-done' : '') + '">' + labels[k] + (has ? ': ' + escapeHtml(String(data[k])) : '') + '</li>';
+    });
+    listHtml += '</ul>';
+    var card = document.createElement('div');
+    card.className = 'pa-card';
+    card.innerHTML =
+      '<span class="pa-card-eyebrow">Lost Property intake</span>' +
+      '<div class="pa-card-title">Gathering your details</div>' +
+      listHtml;
+    $messages.appendChild(card);
+    scrollToBottom();
+  }
+
+  function showHandoffBanner(caseNumber, category) {
+    var el = document.createElement('div');
+    el.className = 'pa-handoff';
+    el.innerHTML =
+      '<div class="pa-handoff-icon">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+      '</div>' +
+      '<div class="pa-handoff-body">' +
+        '<div class="pa-handoff-title">Connected to our team</div>' +
+        '<div class="pa-handoff-text">A member of the Iarnród team will pick this up shortly. You will hear back by email.</div>' +
+        (caseNumber ? ('<span class="pa-case-number">Case ' + escapeHtml(caseNumber) + '</span>') : '') +
+      '</div>';
+    $messages.appendChild(el);
+    scrollToBottom();
+  }
+
+  function scrollToBottom() {
+    $messages.scrollTop = $messages.scrollHeight;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  // ─── History persistence ─────────────────────────────────────
+  function trimAndSaveHistory() {
+    if (state.messages.length > CONFIG.MAX_HISTORY_TURNS * 2) {
+      state.messages = state.messages.slice(-CONFIG.MAX_HISTORY_TURNS * 2);
+    }
+    try { sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state.messages)); } catch(e) {}
+  }
+  function loadHistory() {
+    try {
+      var raw = sessionStorage.getItem(CONFIG.STORAGE_KEY);
+      if (raw) state.messages = JSON.parse(raw) || [];
+      state.messages.forEach(function(m) {
+        var el = document.createElement('div');
+        el.className = 'pa-msg ' + (m.role === 'user' ? 'pa-user' : 'pa-bot');
+        el.textContent = m.text;
+        $messages.appendChild(el);
+      });
+      scrollToBottom();
+    } catch(e) { state.messages = []; }
+  }
+
+  // ─── Salesforce call (real mode) ─────────────────────────────
+  function callSalesforce(userMessage) {
+    // Recent turns only, matching the PatientAssist pattern
+    var recent = state.messages.slice(-CONFIG.MAX_HISTORY_TURNS * 2);
+    var body = {
+      userMessage:            userMessage,
+      conversationHistoryJson: JSON.stringify(recent),
+      sessionId:              state.sessionId,
+      passengerName:          '',
+      passengerEmail:         '',
+      pnr:                    '',
+      pageUrl:                window.location.href
+    };
+
+    fetch(CONFIG.REST_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      hideTyping();
+      state.isSending = false;
+      $send.disabled  = false;
+      if (res.sessionId && res.sessionId !== state.sessionId) {
+        state.sessionId = res.sessionId;
+        sessionStorage.setItem('iarnrod_pa_session', res.sessionId);
+      }
+      if (res.replyText) showBot(res.replyText);
+      renderRichCard(res);
+    })
+    .catch(function(err) {
+      hideTyping();
+      state.isSending = false;
+      $send.disabled  = false;
+      showBot('Sorry, I could not reach the service just now. Please try again in a moment.');
+      console.error('Iarnród Assist error:', err);
+    });
+  }
+
+  function renderRichCard(res) {
+    if (!res || !res.richCardType) return;
+    var data = res.richCardData || {};
+    if (res.richCardType === 'KNOWLEDGE') {
+      if (data.found) showKnowledgeCard(data);
+    } else if (res.richCardType === 'LOST_ITEM_FORM') {
+      showLostItemCard(data);
+    } else if (res.richCardType === 'HANDOFF_BANNER') {
+      showHandoffBanner(res.caseNumber, data.category);
+    }
+    if (res.needsHandoff && res.richCardType !== 'HANDOFF_BANNER') {
+      showHandoffBanner(res.caseNumber, (data && data.category) || 'Other');
+    }
+  }
+
+  // ─── Mock responses (demo mode) ──────────────────────────────
+  function mockRespond(text) {
+    hideTyping();
+    state.isSending = false;
+    $send.disabled  = false;
+    var lower = text.toLowerCase();
+
+    // Explicit handoff triggers
+    if (/human|agent|person|not helping|useless|frustrated/.test(lower)) {
+      showBot('No problem — I\'m transferring you to a member of our team now.');
+      showHandoffBanner('IE-' + Math.floor(Math.random() * 90000 + 10000), 'Other');
+      return;
+    }
+
+    // Complaints — always immediate handoff
+    if (/complain|complaint|unhappy|angry|awful|terrible|worst/.test(lower)) {
+      showBot('I\'m sorry to hear that. A member of our team will look into your complaint and reach out shortly.');
+      showHandoffBanner('IE-' + Math.floor(Math.random() * 90000 + 10000), 'Complaint - Service Quality');
+      return;
+    }
+
+    // Lost property flow — progressive intake
+    if (/lost|left|forgot|missing|found/.test(lower) ||
+        (state.lostItem.itemDescription && !isLostItemComplete())) {
+      handleLostItem(text);
+      return;
+    }
+
+    // Fares — knowledge card
+    if (/fare|price|ticket|leap|cost|cheap|expensive|refund/.test(lower)) {
+      showBot('Let me check the fares policy for you.');
+      showKnowledgeCard({
+        articleReference: 'IE-FARES-04',
+        articleTitle:     'Standard fares and Leap card discounts',
+        summary:          'Adult single fares are available at station ticket offices and online up to 90 days ahead. Leap card holders receive 20-30% off standard cash fares. Children under 5 travel free with a paying adult. Family Weekend Return is available Friday to Sunday. For refunds within 28 days of unused travel, see policy IE-REFUND-01.',
+        articleUrlName:   'ie-fares-04'
+      });
+      showQuickReplies(['Family fares', 'Leap card top-up', 'Refund my ticket', 'Speak to a person']);
+      return;
+    }
+
+    // Accessibility
+    if (/wheelchair|access|assist|blind|deaf|guide dog|disabled|mobility/.test(lower)) {
+      showBot('Here is what I have on travel assistance.');
+      showKnowledgeCard({
+        articleReference: 'IE-ACCESS-02',
+        articleTitle:     'Travel assistance and step-free access',
+        summary:          'Free travel assistance is available at all Intercity stations with at least 24 hours notice. All Intercity trains have wheelchair spaces and accessible toilets. Guide dogs and assistance dogs travel free. Ramps are available at all staffed stations. Book assistance by calling 1850 366 222 or through the Iarnród Éireann app.',
+        articleUrlName:   'ie-access-02'
+      });
+      showQuickReplies(['Book assistance for my journey', 'Step-free stations', 'Speak to a person']);
+      return;
+    }
+
+    // Off-topic
+    if (/weather|joke|football|match|news|politics/.test(lower)) {
+      showBot('I can only help with Lost Property, Fares, Accessibility, or a Complaint. Which of those can I help with today?');
+      showQuickReplies(['I lost something', 'Fares & tickets', 'Travel assistance', 'Make a complaint']);
+      return;
+    }
+
+    // Fall-through — treat as greeting/chat
+    showBot('Sure — I can help with Lost Property, Fares, Accessibility, or a Complaint. Which one is closest to your question?');
+    showQuickReplies(['I lost something', 'Fares & tickets', 'Travel assistance', 'Make a complaint']);
+  }
+
+  function handleLostItem(text) {
+    var li = state.lostItem;
+    // Slot filling — very simple, one field at a time
+    if (!li.itemDescription) {
+      // If this is the first "I lost" message, ask for description
+      if (/lost|left|forgot|missing/.test(text.toLowerCase()) && text.length < 40) {
+        showBot('I\'m sorry to hear that. Could you describe the item you left behind — colour, brand, anything that would help identify it?');
+        return;
+      }
+      li.itemDescription = text;
+      showBot('Thanks. What day did you travel?');
+      showLostItemCard(li);
+      return;
+    }
+    if (!li.journeyDate) {
+      li.journeyDate = text;
+      showBot('Which route or train were you on? For example "Dublin to Cork 17:00" or "DART Malahide line".');
+      showLostItemCard(li);
+      return;
+    }
+    if (!li.routeOrTrain) {
+      li.routeOrTrain = text;
+      showBot('Almost there. What is the best email to reach you if we find it?');
+      showLostItemCard(li);
+      return;
+    }
+    if (!li.contactEmail) {
+      li.contactEmail = text;
+      showLostItemCard(li);
+      // All done — file the case
+      setTimeout(function() {
+        showBot('Perfect — I have everything I need. Filing your Lost Property report with our team now.');
+        setTimeout(function() {
+          showHandoffBanner('IE-' + Math.floor(Math.random() * 90000 + 10000), 'Lost Property');
+          // Reset lost item state for next time
+          state.lostItem = { itemDescription: '', journeyDate: '', routeOrTrain: '', contactEmail: '' };
+        }, 600);
+      }, 400);
+      return;
+    }
+  }
+
+  function isLostItemComplete() {
+    var li = state.lostItem;
+    return li.itemDescription && li.journeyDate && li.routeOrTrain && li.contactEmail;
+  }
+})();
+</script>
