@@ -1739,8 +1739,14 @@
     font-size: 13px;
     text-decoration: none;
     margin-top: 10px;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
   }
-  .pa-card .pa-card-link:hover { text-decoration: underline; }
+  .pa-card .pa-card-link:hover:not(:disabled) { text-decoration: underline; }
+  .pa-card .pa-card-link:disabled { opacity: 0.6; cursor: default; }
 
   /* Lost item form card */
   .pa-lost-list {
@@ -2163,12 +2169,38 @@
     var ref = data.articleReference || '';
     var title = data.articleTitle || 'Iarnród policy';
     var body = data.summary || '';
+    // Detect whether the summary was truncated — if so, offer an inline expand.
+    // The server truncates at 600 chars with "..." — treat any "..." tail or
+    // a body over 300 chars as "there is more to show".
+    var isTruncated = /\.\.\.\s*$/.test(body) || body.length > 300;
     card.innerHTML =
       '<span class="pa-card-eyebrow">Policy · ' + escapeHtml(ref) + '</span>' +
       '<div class="pa-card-title">' + escapeHtml(title) + '</div>' +
       '<div class="pa-card-body">' + escapeHtml(body) + '</div>' +
-      '<a href="#" class="pa-card-link">Read full article →</a>';
+      (isTruncated
+        ? '<button type="button" class="pa-card-link" data-role="toggle-article">Read full article →</button>'
+        : '');
     $messages.appendChild(card);
+    var toggle = card.querySelector('[data-role="toggle-article"]');
+    if (toggle) {
+      var bodyEl = card.querySelector('.pa-card-body');
+      var expanded = false;
+      var shortText = body;
+      var fullText  = data.articleFullBody || body;
+      toggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (expanded) {
+          bodyEl.textContent = shortText;
+          toggle.textContent = 'Read full article →';
+          expanded = false;
+        } else {
+          bodyEl.textContent = fullText;
+          toggle.textContent = 'Show less ▲';
+          expanded = true;
+        }
+        scrollToBottom();
+      });
+    }
     scrollToBottom();
   }
 
@@ -2205,7 +2237,7 @@
       '</div>' +
       '<div class="pa-handoff-body">' +
         '<div class="pa-handoff-title">Connected to our team</div>' +
-        '<div class="pa-handoff-text">A member of the Iarnród team will pick this up shortly. You will hear back by email.</div>' +
+        '<div class="pa-handoff-text">A member of the Iarnród team will pick this up shortly.</div>' +
         (caseNumber ? ('<span class="pa-case-number">Case ' + escapeHtml(caseNumber) + '</span>') : '') +
       '</div>';
     $messages.appendChild(el);
