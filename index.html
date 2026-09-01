@@ -951,22 +951,22 @@
 <!-- ============================================================ -->
 
 <style>
-  /* ─── palette matches the Iarnród Rail site ─── */
+  /* ─── palette aligned with the Distribusion site ─── */
   :root {
-    --pa-green:       #007A36;
-    --pa-green-dark:  #005C29;
-    --pa-green-soft:  #E8F5EC;
-    --pa-orange:      #F58220;
-    --pa-orange-dark: #DE6E10;
+    --pa-green:       #0B1638;  /* navy — FAB + chat header */
+    --pa-green-dark:  #050D24;  /* darker navy — hover */
+    --pa-green-soft:  #E8F5FB;  /* pale cyan wash */
+    --pa-orange:      #5DC8F0;  /* cyan — send button */
+    --pa-orange-dark: #3AA8D0;  /* cyan hover */
     --pa-panel-bg:    #3F3F3F;
     --pa-panel-bg-2:  #4A4A4A;
-    --pa-text:        #1A1A1A;
-    --pa-muted:       #6B6B6B;
-    --pa-line:        #E5E5E5;
-    --pa-page-bg:     #F5F5F5;
+    --pa-text:        #0B1638;  /* navy text */
+    --pa-muted:       #556180;
+    --pa-line:        #E4E7EE;
+    --pa-page-bg:     #F5F7FA;
     --pa-white:       #FFFFFF;
-    --pa-user-bg:     #007A36;
-    --pa-bot-bg:      #F5F0E4;
+    --pa-user-bg:     #5DC8F0;  /* cyan — user chat bubbles */
+    --pa-bot-bg:      #F3F5F8;  /* neutral wash for bot bubbles */
   }
 
   /* ─── Floating pill button (closed state) ─── */
@@ -1121,7 +1121,7 @@
   .pa-msg.pa-user {
     align-self: flex-end;
     background: var(--pa-user-bg);
-    color: #FFFFFF;
+    color: #0B1638;  /* navy on cyan for contrast */
     border-radius: 14px 14px 4px 14px;
   }
   .pa-msg strong { font-weight: 600; }
