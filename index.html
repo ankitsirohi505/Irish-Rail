@@ -2044,12 +2044,6 @@
     removeQuickReplies();
     $input.value = '';
     showBot('Hi! I\'m Iarnród Assist. What can I do for you?');
-    showQuickReplies([
-      'What\'s the child ticket discount?',
-      'How do I use my Leap Card on trains?',
-      'Are wheelchair spaces bookable?',
-      'What\'s your refund policy for delayed trains?'
-    ]);
     setTimeout(function(){ $input.focus(); }, 20);
   }
 
@@ -2061,12 +2055,6 @@
       loadHistory();
       if (state.messages.length === 0) {
         showBot('Hi! I\'m Iarnród Assist. What can I do for you?');
-        showQuickReplies([
-          'What\'s the child ticket discount?',
-          'How do I use my Leap Card on trains?',
-          'Are wheelchair spaces bookable?',
-          'What\'s your refund policy for delayed trains?'
-        ]);
       }
     }
     setTimeout(function() { $input.focus(); }, 100);
