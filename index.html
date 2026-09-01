@@ -1961,6 +1961,8 @@
     HANDOFF_URL:    'https://trailsignup-dd114f6bfc3319.my.salesforce-sites.com/iarnrodassist/services/apexrest/passengerAssist/handoff',
     STORAGE_KEY:    'iarnrod_pa_history',
     HANDOFF_KEY:    'iarnrod_pa_handoff_case',
+    EMAIL_KEY:      'iarnrod_pa_email',      // cached so the AI doesn't re-ask
+    PNR_KEY:        'iarnrod_pa_pnr',        // cached so the AI doesn't re-ask
     MAX_HISTORY_TURNS: 12,
     POLL_MS:        3500      // matches PatientAssist widget polling cadence
   };
@@ -1978,7 +1980,10 @@
     handoffCaseNumber: sessionStorage.getItem('iarnrod_pa_handoff_number') || null,
     isLiveMode:  false,
     lastPollMs:  0,
-    pollTimer:   null
+    pollTimer:   null,
+    // Memory across turns — the AI never asks for these twice.
+    passengerEmail: sessionStorage.getItem('iarnrod_pa_email') || '',
+    passengerPnr:   sessionStorage.getItem('iarnrod_pa_pnr')   || ''
   };
 
   // ─── DOM refs ───────────────────────────────────────────────
@@ -2013,7 +2018,13 @@
     stopLiveMode(true);
     state.messages = [];
     state.lostItem = { itemDescription: '', journeyDate: '', routeOrTrain: '', contactEmail: '' };
-    try { sessionStorage.removeItem(CONFIG.STORAGE_KEY); } catch(e) {}
+    state.passengerEmail = '';
+    state.passengerPnr   = '';
+    try {
+      sessionStorage.removeItem(CONFIG.STORAGE_KEY);
+      sessionStorage.removeItem(CONFIG.EMAIL_KEY);
+      sessionStorage.removeItem(CONFIG.PNR_KEY);
+    } catch(e) {}
     $messages.innerHTML = '';
     removeQuickReplies();
     $input.value = '';
@@ -2232,8 +2243,8 @@
       conversationHistoryJson: JSON.stringify(recent),
       sessionId:              state.sessionId,
       passengerName:          '',
-      passengerEmail:         '',
-      pnr:                    '',
+      passengerEmail:         state.passengerEmail,   // cached — AI won't re-ask
+      pnr:                    state.passengerPnr,     // cached — AI won't re-ask
       pageUrl:                window.location.href
     };
 
@@ -2250,6 +2261,15 @@
       if (res.sessionId && res.sessionId !== state.sessionId) {
         state.sessionId = res.sessionId;
         sessionStorage.setItem('iarnrod_pa_session', res.sessionId);
+      }
+      // Cache email + PNR the AI extracted this turn — never ask again.
+      if (res.capturedEmail && !state.passengerEmail) {
+        state.passengerEmail = res.capturedEmail;
+        try { sessionStorage.setItem(CONFIG.EMAIL_KEY, res.capturedEmail); } catch(e) {}
+      }
+      if (res.capturedPnr && !state.passengerPnr) {
+        state.passengerPnr = res.capturedPnr;
+        try { sessionStorage.setItem(CONFIG.PNR_KEY, res.capturedPnr); } catch(e) {}
       }
       if (res.replyText) showBot(res.replyText);
       renderRichCard(res);
@@ -2270,6 +2290,10 @@
       if (data.found) showKnowledgeCard(data);
     } else if (res.richCardType === 'LOST_ITEM_FORM') {
       showLostItemCard(data);
+    } else if (res.richCardType === 'CONFIRM_HANDOFF') {
+      // Show a two-chip confirmation before firing the actual handoff.
+      var chips = data.quickReplies || ['Yes, connect me', 'Not yet'];
+      showQuickReplies(chips);
     } else if (res.richCardType === 'HANDOFF_BANNER') {
       showHandoffBanner(res.caseNumber, data.category);
     }
