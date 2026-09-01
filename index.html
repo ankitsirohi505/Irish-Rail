@@ -1967,23 +1967,32 @@
     POLL_MS:        3500      // matches PatientAssist widget polling cadence
   };
 
+  // ─── Session reset on every page load ───────────────────────
+  // Wipe every iarnrod_pa_* key so a refresh always begins a fresh conversation.
+  // Passenger's expectation: closing/refreshing the tab ends the chat.
+  try {
+    ['iarnrod_pa_history','iarnrod_pa_session','iarnrod_pa_handoff_case',
+     'iarnrod_pa_handoff_number','iarnrod_pa_email','iarnrod_pa_pnr']
+      .forEach(function(k) { sessionStorage.removeItem(k); });
+  } catch(e) {}
+
   // ─── State ──────────────────────────────────────────────────
   var state = {
     isOpen:      false,
     isSending:   false,
-    sessionId:   sessionStorage.getItem('iarnrod_pa_session') || null,
+    sessionId:   null,
     messages:    [],
     // Progressive lost-item slots (mock mode)
     lostItem:    { itemDescription: '', journeyDate: '', routeOrTrain: '', contactEmail: '' },
     // Live handoff state
-    handoffCaseId:     sessionStorage.getItem('iarnrod_pa_handoff_case') || null,
-    handoffCaseNumber: sessionStorage.getItem('iarnrod_pa_handoff_number') || null,
+    handoffCaseId:     null,
+    handoffCaseNumber: null,
     isLiveMode:  false,
     lastPollMs:  0,
     pollTimer:   null,
     // Memory across turns — the AI never asks for these twice.
-    passengerEmail: sessionStorage.getItem('iarnrod_pa_email') || '',
-    passengerPnr:   sessionStorage.getItem('iarnrod_pa_pnr')   || ''
+    passengerEmail: '',
+    passengerPnr:   ''
   };
 
   // ─── DOM refs ───────────────────────────────────────────────
