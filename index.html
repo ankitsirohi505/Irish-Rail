@@ -1484,6 +1484,8 @@
     isLiveMode:  false,
     lastPollMs:  0,
     pollTimer:   null,
+    pollInflight: false,
+    renderedRepMsgIds: {},
     // Memory across turns — the AI never asks for these twice.
     passengerEmail: '',
     passengerPnr:   ''
@@ -1891,6 +1893,8 @@
     state.handoffCaseId      = caseId;
     state.handoffCaseNumber  = caseNumber || '';
     state.lastPollMs         = Date.now() - 60000;   // catch anything in the last 60s
+    state.renderedRepMsgIds  = {};                    // fresh dedup map per session
+    state.pollInflight       = false;
     try {
       sessionStorage.setItem('iarnrod_pa_handoff_case', caseId);
       if (caseNumber) sessionStorage.setItem('iarnrod_pa_handoff_number', caseNumber);
@@ -1963,6 +1967,10 @@
 
   function pollLiveMessages() {
     if (!state.isLiveMode || !state.handoffCaseId) return;
+    // Skip if a previous poll is still in-flight — avoids two overlapping
+    // fetches replaying the same message before lastPollMs advances.
+    if (state.pollInflight) return;
+    state.pollInflight = true;
     var body = {
       action:  'get_messages',
       caseId:  state.handoffCaseId,
@@ -1985,6 +1993,10 @@
         if (m.role === 'agent' && m.text) {
           // Skip system separators like "── Passenger ended chat ──"
           if (m.text.indexOf('──') === 0) continue;
+          // Dedup by message id — protects against retries or any server
+          // path that returns the same row on two consecutive polls.
+          if (m.id && state.renderedRepMsgIds[m.id]) continue;
+          if (m.id) state.renderedRepMsgIds[m.id] = true;
           renderRepMessage(m);
         }
       }
@@ -1993,7 +2005,8 @@
         stopLiveMode(true);
       }
     })
-    .catch(function() { /* transient network — try again next tick */ });
+    .catch(function() { /* transient network — try again next tick */ })
+    .then(function() { state.pollInflight = false; });
   }
 
   function renderRepMessage(m) {
