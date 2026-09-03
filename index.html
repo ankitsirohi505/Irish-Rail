@@ -1411,18 +1411,18 @@
 </style>
 
 <!-- Widget UI: floating pill + hidden panel -->
-<button class="pa-fab" id="paFab" aria-label="Open Iarnród Assist">
+<button class="pa-fab" id="paFab" aria-label="Open IE Assist">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-  Iarnród Assist
+  IE Assist
 </button>
 
-<div class="pa-panel pa-hide" id="paPanel" role="dialog" aria-label="Iarnród Assist chat">
+<div class="pa-panel pa-hide" id="paPanel" role="dialog" aria-label="IE Assist chat">
   <div class="pa-header">
     <div class="pa-avatar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M4 10h16"/><circle cx="8" cy="15" r="1.5" fill="currentColor"/><circle cx="16" cy="15" r="1.5" fill="currentColor"/></svg>
     </div>
     <div class="pa-title">
-      <div class="pa-title-main">Iarnród Assist</div>
+      <div class="pa-title-main">IE Assist</div>
     </div>
     <button class="pa-new-chat" id="paNewChat" aria-label="Start a new conversation" title="New conversation">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
@@ -1441,7 +1441,7 @@
     </button>
   </div>
 
-  <div class="pa-footer">Powered by Iarnród · AI assistant</div>
+  <div class="pa-footer">Powered by IE · AI assistant</div>
 </div>
 
 <script>
@@ -1531,7 +1531,7 @@
     $messages.innerHTML = '';
     removeQuickReplies();
     $input.value = '';
-    showBot('Hi! I\'m Iarnród Assist. What can I do for you?');
+    showBot('Hi! I\'m IE Assist. What can I do for you?');
     setTimeout(function(){ $input.focus(); }, 20);
   }
 
@@ -1542,7 +1542,7 @@
     if (state.messages.length === 0) {
       loadHistory();
       if (state.messages.length === 0) {
-        showBot('Hi! I\'m Iarnród Assist. What can I do for you?');
+        showBot('Hi! I\'m IE Assist. What can I do for you?');
       }
     }
     setTimeout(function() { $input.focus(); }, 100);
@@ -1653,7 +1653,7 @@
     var card = document.createElement('div');
     card.className = 'pa-card';
     var ref = data.articleReference || '';
-    var title = data.articleTitle || 'Iarnród policy';
+    var title = data.articleTitle || 'IE policy';
     var body = data.summary || '';
     var isTruncated = /\.\.\.\s*$/.test(body) || body.length > 300;
     card.innerHTML =
@@ -1773,7 +1773,7 @@
       '</div>' +
       '<div class="pa-handoff-body">' +
         '<div class="pa-handoff-title">Connected to our team</div>' +
-        '<div class="pa-handoff-text">A member of the Iarnród team will pick this up shortly.</div>' +
+        '<div class="pa-handoff-text">A member of the IE team will pick this up shortly.</div>' +
         (caseNumber ? ('<span class="pa-case-number">Case ' + escapeHtml(caseNumber) + '</span>') : '') +
       '</div>';
     $messages.appendChild(el);
@@ -1856,7 +1856,7 @@
       state.isSending = false;
       $send.disabled  = false;
       showBot('Sorry, I could not reach the service just now. Please try again in a moment.');
-      console.error('Iarnród Assist error:', err);
+      console.error('IE Assist error:', err);
     });
   }
 
@@ -1897,7 +1897,7 @@
     } catch(e) {}
     // Update header + placeholder so the passenger knows they're talking to a person
     setLiveHeader();
-    $input.placeholder = 'Reply to the Iarnród team…';
+    $input.placeholder = 'Reply to the IE team…';
     // Start polling for rep replies
     stopLiveMode(false);       // clear any pre-existing timer
     state.pollTimer = setInterval(pollLiveMessages, CONFIG.POLL_MS);
@@ -1921,13 +1921,13 @@
   function setLiveHeader() {
     var title = document.querySelector('.pa-title-main');
     var sub   = document.querySelector('.pa-title-sub');
-    if (title) title.textContent = 'Iarnród team';
+    if (title) title.textContent = 'IE team';
     if (sub) sub.innerHTML = 'Live · ' + (state.handoffCaseNumber ? ('Case ' + state.handoffCaseNumber) : 'connecting…');
   }
   function resetHeaderToAi() {
     var title = document.querySelector('.pa-title-main');
     var sub   = document.querySelector('.pa-title-sub');
-    if (title) title.textContent = 'Iarnród Assist';
+    if (title) title.textContent = 'IE Assist';
     if (sub) sub.innerHTML = '';
   }
 
@@ -1957,7 +1957,7 @@
       state.isSending = false;
       $send.disabled  = false;
       showBot('Sorry, could not reach the service. Please try again in a moment.');
-      console.error('Iarnród Live send error:', err);
+      console.error('IE Live send error:', err);
     });
   }
 
@@ -2004,7 +2004,7 @@
     senderLine.style.opacity = '0.7';
     senderLine.style.marginBottom = '3px';
     senderLine.style.fontWeight = '600';
-    senderLine.textContent = (m.senderName || 'Iarnród team') + (m.createdAt ? (' · ' + m.createdAt) : '');
+    senderLine.textContent = (m.senderName || 'IE team') + (m.createdAt ? (' · ' + m.createdAt) : '');
     var textLine = document.createElement('div');
     textLine.textContent = m.text;
     el.appendChild(senderLine);
@@ -2025,7 +2025,7 @@
       '</div>' +
       '<div class="pa-handoff-body">' +
         '<div class="pa-handoff-title">Chat closed</div>' +
-        '<div class="pa-handoff-text">The Iarnród team has ended this chat. You can start a new conversation anytime.</div>' +
+        '<div class="pa-handoff-text">The IE team has ended this chat. You can start a new conversation anytime.</div>' +
       '</div>';
     $messages.appendChild(el);
     scrollToBottom();
@@ -2086,7 +2086,7 @@
       showKnowledgeCard({
         articleReference: 'IE-ACCESS-02',
         articleTitle:     'Travel assistance and step-free access',
-        summary:          'Free travel assistance is available at all Intercity stations with at least 24 hours notice. All Intercity trains have wheelchair spaces and accessible toilets. Guide dogs and assistance dogs travel free. Ramps are available at all staffed stations. Book assistance by calling 1850 366 222 or through the Iarnród Éireann app.',
+        summary:          'Free travel assistance is available at all Intercity stations with at least 24 hours notice. All Intercity trains have wheelchair spaces and accessible toilets. Guide dogs and assistance dogs travel free. Ramps are available at all staffed stations. Book assistance by calling 1850 366 222 or through the IE app.',
         articleUrlName:   'ie-access-02'
       });
       showQuickReplies(['Book assistance for my journey', 'Step-free stations', 'Speak to a person']);
