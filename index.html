@@ -1773,7 +1773,7 @@
       '</div>' +
       '<div class="pa-handoff-body">' +
         '<div class="pa-handoff-title">Connected to our team</div>' +
-        '<div class="pa-handoff-text">A member of the IE team will pick this up shortly.</div>' +
+        '<div class="pa-handoff-text">A member of the IE Team will pick this up shortly.</div>' +
         (caseNumber ? ('<span class="pa-case-number">Case ' + escapeHtml(caseNumber) + '</span>') : '') +
       '</div>';
     $messages.appendChild(el);
@@ -1897,7 +1897,7 @@
     } catch(e) {}
     // Update header + placeholder so the passenger knows they're talking to a person
     setLiveHeader();
-    $input.placeholder = 'Reply to the IE team…';
+    $input.placeholder = 'Reply to the IE Team…';
     // Start polling for rep replies
     stopLiveMode(false);       // clear any pre-existing timer
     state.pollTimer = setInterval(pollLiveMessages, CONFIG.POLL_MS);
@@ -1921,7 +1921,7 @@
   function setLiveHeader() {
     var title = document.querySelector('.pa-title-main');
     var sub   = document.querySelector('.pa-title-sub');
-    if (title) title.textContent = 'IE team';
+    if (title) title.textContent = 'IE Team';
     if (sub) sub.innerHTML = 'Live · ' + (state.handoffCaseNumber ? ('Case ' + state.handoffCaseNumber) : 'connecting…');
   }
   function resetHeaderToAi() {
@@ -2004,7 +2004,7 @@
     senderLine.style.opacity = '0.7';
     senderLine.style.marginBottom = '3px';
     senderLine.style.fontWeight = '600';
-    senderLine.textContent = (m.senderName || 'IE team') + (m.createdAt ? (' · ' + m.createdAt) : '');
+    senderLine.textContent = (m.senderName || 'IE Team') + (m.createdAt ? (' · ' + m.createdAt) : '');
     var textLine = document.createElement('div');
     textLine.textContent = m.text;
     el.appendChild(senderLine);
@@ -2025,7 +2025,7 @@
       '</div>' +
       '<div class="pa-handoff-body">' +
         '<div class="pa-handoff-title">Chat closed</div>' +
-        '<div class="pa-handoff-text">The IE team has ended this chat. You can start a new conversation anytime.</div>' +
+        '<div class="pa-handoff-text">The IE Team has ended this chat. You can start a new conversation anytime.</div>' +
       '</div>';
     $messages.appendChild(el);
     scrollToBottom();
